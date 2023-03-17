@@ -1,87 +1,93 @@
-import spotipy
-import spotipy.util as util
 import os
-from dotenv import load_dotenv
-import base64
-from requests import post
+import spotipy
+from spotipy.oauth2 import SpotifyOAuth
+import json
 
 
+titleScreen = """
+====================================
+    SPOTIFY NEW MUSIC EXPLORER:
+        create playlsts with
+        undiscovered music !
+====================================
+"""
 # Variables for authentication
 username = 'your_username'
 client_id= os.getenv("Client_id")
 client_secret= os.getenv("Client_secret")
-redirect_uri = "https://accounts.spotify.com/api/token"
-# Authentication
-def get_token():
-    auth_string =str(client_id)  + ":" + str(client_secret)
-    auth_bytes = auth_string.encode("utf-8")
-    auth_base64 = str(base64.b64encode(auth_bytes), "utf-8")
+redirect_uri = os.getenv("REDIRECT") 
+user= os.getenv("USER")
 
-    url = "https://accounts.spotify.com/api/token"
-    headers = {"Authorization":
-               "Basic " + auth_base64,
-               "Content-type": "application/x-www-form-urlencoded"}
-    data = {"grant_type": "client_credentials"}
-    result = post(url, headers=headers, data=data)
-    json_result = result.loads(result.content)
-    token = json_result["access_token"]
-    return token
+#initial setup for spotify object
+Scope = 'playlist-modify-public'
+spotifyOBJ = SpotifyOAuth(client_id = client_id, client_secret = client_secret, redirect_uri = redirect_uri, scope = Scope, username = user)
+spotify = spotipy.Spotify(auth_manager = spotifyOBJ)
+genresJSON = spotify.recommendation_genre_seeds()
+genres = genresJSON['genres']
 
-token = get_token()
+    
+class PlaylistGenerator:
 
-# Create Spotify object
-spotify = spotipy.Spotify(auth=token)
 
-# Get user input
-genre = input('Please enter a genre: ')
-artist = input('Please enter an artist: ')
-mood = input('Please enter a mood: ')
+    def __init__(self):
+        #initialize values
+        self.targetGenre = 0
+        self.numTracks = 0
+        self.recommendations = []
+        self.newPlaylist = ''
+        self.tracklist = []
+        
+    def getInputs(self):
+        #get data about playlist to generate
+        self.targetGenre = input("Please select # to explore genre: ")
+        self.targetGenre = int(self.targetGenre) - 1
+        self.numTracks = int(input("Number of tracks within playlist(1 - 100): "))
+        self.numTracks = int(self.numTracks)
 
-# Search for songs using the API
-query = 'genre:{} artist:{} mood:{}'.format(genre, artist, mood)
-results = spotify.search(query, type='track')
+    def showGenres(self):
+        for n in range(len(genres)):
+            index = n + 1
+            print(index,". " , genres[n])
 
-# Print out the results
-print(results)
+    def getRecommendations(self):
+        #generates number of recommended tracks
+        print(self.targetGenre)
+        self.recommendations = spotify.recommendations(seed_genres = [genres[self.targetGenre], genres[self.targetGenre + 1]] , limit = self.numTracks)
 
-# Select songs for the playlist
-song_list = []
-for result in results['tracks']['items']:
-    # Get the song's popularity and release date
-    popularity = result['popularity']
-    release_date = result['album']['release_date']
+    def makePlaylist(self):
+        #makes new playlist
+        playlistName = genres[self.targetGenre] + " exploration"
+        playlistDesc = "Playlist of undiscovered " + genres[self.targetGenre] + " songs."
 
-    # Get the song's tempo
-    audio_features = spotify.audio_features(result['id'])
-    tempo = audio_features[0]['tempo']
+        spotify.user_playlist_create(user = user, name = playlistName, public = True, description = playlistDesc)
+        playlists = spotify.user_playlists(user = user)
+        self.newPlaylist = playlists['items'][0]['id']
 
-    # Use algorithm to select the song
-    if popularity > 70 and release_date > '2010-01-01' and tempo > 120:
-        song_list.append(result['id'])
+    def addTracks(self):
+        for i in range(self.numTracks):
+            self.tracklist.append(self.recommendations['tracks'][i]['uri'])
 
-# Print out the list of songs
-print(song_list)
+        spotify.user_playlist_add_tracks(user = user, playlist_id = self.newPlaylist, tracks = self.tracklist)
 
-# Create playlist
-playlist_name = 'My Automated Playlist'
-playlist = spotify.user_playlist_create(username, playlist_name)
+    def reset(self):
+        self.targetGenre = 0
+        self.numTracks = 0
+        self.recommendations = []
+        self.newPlaylist = ''
+        self.tracklist = []
+            
+def main():
+    generator = PlaylistGenerator()
+    input(titleScreen)
+    os.system('cls')
+    
+    while True:
+        generator.showGenres()
+        generator.getInputs()
+        generator.getRecommendations()
+        generator.makePlaylist()
+        generator.addTracks()
+        generator.reset()
 
-# Print out the playlist information
-print(playlist)
-
-# Add songs to playlist
-playlist_id = playlist['id']
-spotify.user_playlist_add_tracks(username, playlist_id, song_list)
-
-# Error handling and testing
-try:
-    # Make sure the playlist was created properly
-    playlist = spotify.user_playlist(username, playlist_id)
-    if playlist['name'] == playlist_name:
-        print('Playlist created successfully!')
-    else:
-        print('Error creating playlist.')
-
-except spotipy.SpotifyException as e:
-    # Handle spotify API errors
-    print('Error creating playlist: {}'.format(e))
+if __name__ == "__main__":
+    main()
