@@ -3,12 +3,25 @@ import os
 import base64
 from requests import post, get
 import json
+import random
+import time
 
 load_dotenv()
 client_id = os.getenv("CLIENT_ID")
 client_secret = os.getenv("CLIENT_SECRET")
 
-print(client_id, client_secret)
+#welcome listener
+print("Welcome!")
+name = input("Enter your name: ")
+print ("Hello, " + name, "Which artist would you like to listen to?")
+
+
+#wait a second
+time.sleep(1) 
+artist = input("Enter name of artist: ")
+singer = artist
+print ("This is what we have for you:")
+time.sleep(1)
 
 
 def get_token():
@@ -57,7 +70,7 @@ def get_songs_by_artist(token, artist_id):
 
 
 token = get_token()
-result = search_for_artist(token, "ABDC")
+result = search_for_artist(token, singer)
 
 if result is not None:
     artist_id = result["id"]
@@ -68,4 +81,6 @@ if result is not None:
         print(f"{idx + 1}. {song['name']}")
 else:
     print("No songs found for this artist")
+
+
 
