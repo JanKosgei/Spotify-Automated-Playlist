@@ -17,7 +17,7 @@ print ("Hello, " + name, "Which artist would you like to listen to?")
 
 
 #wait a second
-time.sleep(1)
+time.sleep(1) 
 artist = input("Enter name of artist: ")
 singer = artist
 print ("This is what we have for you:")
